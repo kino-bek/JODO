@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JODO</title>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<section id="auth" hidden>
+  <form id="fAuth" class="card">
+    <div class="logo">• JO<br>&nbsp;&nbsp;DO</div>
+    <h2 id="at">Вход</h2>
+    <input name="nm" placeholder="Ваше имя" autocomplete="name" hidden>
+    <input name="email" type="email" placeholder="Почта" required autocomplete="email">
+    <input name="pw" type="password" placeholder="Пароль (минимум 6 символов)" minlength="6" required autocomplete="current-password">
+    <p class="err" id="aerr"></p>
+    <button class="btn" id="ab">Войти</button>
+    <button type="button" class="link" id="sw">Нет аккаунта? Зарегистрироваться</button>
+    <small id="demo" hidden>Демо-режим: данные хранятся только в этом браузере.</small>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <aside class="side">
+    <div class="logo">• JO<br>&nbsp;&nbsp;DO</div>
+    <nav class="nav">
+      <button data-v="today"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Сегодня</button>
+      <button data-v="calendar"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>Календарь</button>
+      <button data-v="tasks"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/></svg>Задачи</button>
+      <button data-v="plans"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Планы</button>
+    </nav>
+    <div class="projs"><small>МЕТКИ</small><div id="proj"></div></div>
+    <div class="foot">
+      <button data-act="trash"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Корзина</button>
+      <button data-act="settings"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Настройки</button>
+    </div>
+  </aside>
+  <main>
+    <header>
+      <div><h1><i>•</i><span id="h"></span></h1><p id="sub"></p></div>
+      <div class="tools">
+        <button class="bell" data-act="bell" aria-label="Уведомления"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4zM10 21h4"/></svg><em id="badge"></em></button>
+        <button class="ava" data-act="ava" id="ava"></button>
+        <div class="pop" id="pb" hidden></div>
+        <div class="pop" id="pa" hidden>
+          <b id="pn"></b><small id="pc"></small>
+          <button class="btn" data-act="profile">Открыть профиль</button>
+          <button class="mob" data-act="trash">Корзина</button>
+          <button class="mob" data-act="settings">Настройки</button>
+          <button class="link" data-act="logout">Выйти</button>
+        </div>
+      </div>
+    </header>
+    <div id="main"></div>
+    <button class="btn add" data-act="add"><b>+</b><span>Добавить задачу</span></button>
+  </main>
+</div>
+
+<dialog id="mTask"><form id="fTask">
+  <small class="hl">JODO HELPER</small><h2>Новая задача</h2>
+  <label>Название<input name="t" placeholder="Например, подготовить презентацию"></label>
+  <div class="two">
+    <label>К какому числу сделать<input name="d" type="date" required></label>
+    <label>Когда начать<input name="tm" type="time" required></label>
+  </div>
+  <label>Метка (необязательно)<input name="p" list="lbls" maxlength="30" placeholder="Например: не важное, потом — что угодно"><datalist id="lbls"></datalist></label>
+  <p class="err" id="err"></p>
+  <div class="two"><button class="btn">Сохранить</button><button type="button" class="ghost" data-close>Отмена</button></div>
+</form></dialog>
+
+<dialog id="mTrash"><small class="hl">JODO HELPER</small><button class="x2" data-close aria-label="Закрыть">✕</button><h2>Корзина</h2><div id="tl"></div></dialog>
+
+<dialog id="mSet"><small class="hl">JODO HELPER</small><button class="x2" data-close aria-label="Закрыть">✕</button><h2>Настройки</h2>
+  <label class="row"><span><b>Уведомления</b><small>Напоминать о предстоящих задачах</small></span><input type="checkbox" name="notify"></label>
+  <label class="row"><span><b>Компактный режим</b><small>Уменьшить расстояние между задачами</small></span><input type="checkbox" name="compact"></label>
+  <label class="row"><span><b>Начало недели</b><small>Понедельник</small></span><input type="checkbox" name="monday"></label>
+</dialog>
+
+<div id="toast" hidden></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
