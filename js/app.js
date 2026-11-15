@@ -3,9 +3,13 @@ import { CITY } from './config.js';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const QUOTES = [['Первый шаг — начало большого пути', ''], ['Чтобы дойти до цели, нужно прежде всего идти', 'Оноре де Бальзак'], ['Два самых могущественных воина — терпение и время', 'Лев Толстой'], ['Каждый день — это новое начало', 'Джонатан Локвуд Хьюи'], ['Путь в тысячу ли начинается с первого шага', 'Лао-цзы'], ['Единственный способ делать великие дела — любить то, что ты делаешь', 'Стив Джобс'], ['Сделано лучше, чем идеально', 'Шерил Сэндберг'], ['Дорогу осилит идущий', 'Русская пословица'], ['Большое дело начинается с маленького шага', ''], ['Не нужно делать всё. Нужно начать', '']];
 let qi = 0;
-const pickQ = () => { const l = +localStorage.getItem('jodo:q') || 0; qi = (l + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length; localStorage.setItem('jodo:q', qi); };
+const pickQ = () => { const l = +ck('jodo_q') || 0; qi = (l + 1 + Math.floor(Math.random() * (QUOTES.length - 1))) % QUOTES.length; ck('jodo_q', qi); };
 const HEAD = { today: ['Сегодня', 'Задачи на сегодня'], calendar: ['Календарь', 'Расписание на неделю'], tasks: ['Задачи', 'Все ваши задачи в одном списке'], plans: ['Планы', 'Ваше пространство для планов'] };
-const S = { user: null, tasks: [], view: 'today', wk: 0, set: { notify: true, compact: false, monday: true, ...JSON.parse(localStorage.getItem('jodo:set') || '{}') } };
+const ck = (k, v) => {
+  if (v === undefined) { const m = document.cookie.match('(?:^|; )' + k + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : ''; }
+  document.cookie = `${k}=${encodeURIComponent(v)}; max-age=31536000; path=${location.pathname.replace(/[^/]*$/, '')}; SameSite=Lax${location.protocol == 'https:' ? '; Secure' : ''}`;
+};
+const S = { user: null, tasks: [], view: 'today', wk: 0, set: { notify: true, compact: false, monday: true, ...JSON.parse(ck('jodo_set') || '{}') } };
 const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const pl = (n, a, b, c) => { const m = n % 10, h = n % 100; return n + ' ' + (m == 1 && h != 11 ? a : m > 1 && m < 5 && (h < 10 || h > 20) ? b : c); };
 const live = () => S.tasks.filter(t => !t.deleted_at), act = l => (l || live()).filter(t => !t.done);
@@ -91,7 +95,7 @@ $('#fTask').onsubmit = async e => {
   try { S.tasks.push(await db.add({ title, due: due.toISOString(), project: f.p.value.trim() })); $('#mTask').close(); render(); }
   catch { err.textContent = 'Не удалось сохранить задачу. Проверьте подключение и попробуйте ещё раз.'; }
 };
-$('#mSet').addEventListener('change', e => { S.set[e.target.name] = e.target.checked; localStorage.setItem('jodo:set', JSON.stringify(S.set)); render(); });
+$('#mSet').addEventListener('change', e => { S.set[e.target.name] = e.target.checked; ck('jodo_set', JSON.stringify(S.set)); render(); });
 
 let reg = false;
 $('#sw').onclick = () => {
@@ -104,7 +108,14 @@ $('#fAuth').onsubmit = async e => {
     if (reg) { if (!await auth.signUp(f.email.value, f.pw.value, f.nm.value.trim())) return m.textContent = 'Мы отправили письмо. Подтвердите почту и войдите.'; }
     else await auth.signIn(f.email.value, f.pw.value);
     boot();
-  } catch (x) { m.textContent = /invalid login/i.test(x.message) ? 'Неверная почта или пароль. Проверьте данные и попробуйте ещё раз.' : /already/i.test(x.message) ? 'Эта почта уже зарегистрирована. Войдите в аккаунт.' : 'Не удалось выполнить действие. Проверьте данные и попробуйте ещё раз.'; }
+  } catch (x) {
+    const t = x.message || '';
+    m.textContent = /invalid login/i.test(t) ? 'Неверная почта или пароль. Проверьте данные и попробуйте ещё раз.'
+      : /already|registered|exists/i.test(t) ? 'Эта почта уже зарегистрирована. Войдите в аккаунт или подтвердите её по письму.'
+      : /confirm/i.test(t) ? 'Подтвердите почту по ссылке из письма, затем войдите.'
+      : /rate limit/i.test(t) ? 'Слишком много попыток. Подождите немного и попробуйте снова.'
+      : 'Не удалось выполнить действие. Проверьте данные и попробуйте ещё раз.';
+  }
 };
 async function boot() {
   S.user = await auth.user(); $('#demo').hidden = cloud; $('#auth').hidden = !!S.user; $('#app').hidden = !S.user; if (!S.user) return; pickQ();
@@ -116,3 +127,5 @@ async function boot() {
 const told = new Set();
 setInterval(() => { if (!S.set.notify || !S.user) return; act().forEach(t => { const m = (new Date(t.due) - Date.now()) / 6e4; if (m > 0 && m <= 15 && !told.has(t.id)) { told.add(t.id); toast('Через 15 минут: ' + t.title); } }); }, 30000);
 boot();
+if (!ck('jodo_ok')) $('#ck').hidden = false;
+$('#ckb').onclick = () => { ck('jodo_ok', '1'); $('#ck').hidden = true; };

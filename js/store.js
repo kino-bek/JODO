@@ -19,7 +19,7 @@ export const auth = {
   },
   async signUp(email, password, name) {            // true = сразу вошёл
     if (!sb) { sv('user', { id: uid(), email, name }); return true; }
-    const r = await sb.auth.signUp({ email, password, options: { data: { name } } });
+    const r = await sb.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: location.href.split('#')[0] } });
     ok(r); return !!r.data.session;
   },
   async signIn(email, password) {
