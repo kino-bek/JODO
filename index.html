@@ -46,7 +46,7 @@
         <div class="pop" id="pb" hidden></div>
         <div class="pop" id="pa" hidden>
           <b id="pn"></b><small id="pc"></small>
-          <button class="btn" data-act="profile">Открыть профиль</button>
+          <button class="btn" data-act="profile" id="profBtn">Открыть профиль</button>
           <button class="mob" data-act="trash">Корзина</button>
           <button class="mob" data-act="settings">Настройки</button>
           <button class="link" data-act="logout">Выйти</button>
@@ -76,8 +76,23 @@
   <label class="row"><span><b>Уведомления</b><small>Напоминать о предстоящих задачах</small></span><input type="checkbox" name="notify"></label>
   <label class="row"><span><b>Компактный режим</b><small>Уменьшить расстояние между задачами</small></span><input type="checkbox" name="compact"></label>
   <label class="row"><span><b>Начало недели</b><small>Понедельник</small></span><input type="checkbox" name="monday"></label>
+  <div class="setsec">
+    <b>Тема сайта</b><small>Выберите оформление интерфейса</small>
+    <div class="segm" id="themeSeg">
+      <button type="button" data-theme="dark">Тёмная</button>
+      <button type="button" data-theme="light">Светлая</button>
+      <button type="button" data-theme="custom">Своя</button>
+    </div>
+    <div id="themeCustom" hidden>
+      <label>Акцентный цвет<input type="color" name="accent"></label>
+      <label>Цвет фона<input type="color" name="bgcolor"></label>
+    </div>
+  </div>
 </dialog>
 
+<dialog id="mProfile"><button class="x2" data-close aria-label="Закрыть">✕</button><small class="hl">JODO HELPER</small><h2 id="profTitle">Профиль</h2><div class="tabs" id="profTabs"></div><div id="profBody"></div></dialog>
+
+<div id="ck" hidden><span>Мы используем куки, чтобы запоминать ваши настройки и показывать разные цитаты.</span><button id="ckb" class="btn">Понятно</button></div>
 <div id="toast" hidden></div>
 <script type="module" src="js/app.js"></script>
 </body>

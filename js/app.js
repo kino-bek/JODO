@@ -1,4 +1,4 @@
-import { auth, db, cloud } from './store.js';
+import { auth, db, cloud, chat, notices } from './store.js';
 import { CITY } from './config.js';
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const QUOTES = [['Первый шаг — начало большого пути', ''], ['Чтобы дойти до цели, нужно прежде всего идти', 'Оноре де Бальзак'], ['Два самых могущественных воина — терпение и время', 'Лев Толстой'], ['Каждый день — это новое начало', 'Джонатан Локвуд Хьюи'], ['Путь в тысячу ли начинается с первого шага', 'Лао-цзы'], ['Единственный способ делать великие дела — любить то, что ты делаешь', 'Стив Джобс'], ['Сделано лучше, чем идеально', 'Шерил Сэндберг'], ['Дорогу осилит идущий', 'Русская пословица'], ['Большое дело начинается с маленького шага', ''], ['Не нужно делать всё. Нужно начать', '']];
@@ -9,7 +9,7 @@ const ck = (k, v) => {
   if (v === undefined) { const m = document.cookie.match('(?:^|; )' + k + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : ''; }
   document.cookie = `${k}=${encodeURIComponent(v)}; max-age=31536000; path=${location.pathname.replace(/[^/]*$/, '')}; SameSite=Lax${location.protocol == 'https:' ? '; Secure' : ''}`;
 };
-const S = { user: null, tasks: [], view: 'today', wk: 0, set: { notify: true, compact: false, monday: true, ...JSON.parse(ck('jodo_set') || '{}') } };
+const S = { user: null, tasks: [], notices: [], view: 'today', wk: 0, profTab: 'data', inboxUser: null, set: { notify: true, compact: false, monday: true, theme: 'dark', accent: '#2563eb', bgcolor: '#1e2128', ...JSON.parse(ck('jodo_set') || '{}') } };
 const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const pl = (n, a, b, c) => { const m = n % 10, h = n % 100; return n + ' ' + (m == 1 && h != 11 ? a : m > 1 && m < 5 && (h < 10 || h > 20) ? b : c); };
 const live = () => S.tasks.filter(t => !t.deleted_at), act = l => (l || live()).filter(t => !t.done);
@@ -42,8 +42,6 @@ function render() {
   $('.projs').hidden = !lb.length;
   $('#proj').innerHTML = lb.map(p => `<div><i></i>${esc(p)}<em>${act().filter(t => t.project == p).length}</em></div>`).join('');
   $('#lbls').innerHTML = lb.map(p => `<option value="${esc(p)}">`).join('');
-  const n = live().length; $('#badge').textContent = n; $('#badge').hidden = !n || !S.set.notify;
-  $('#pb').innerHTML = `<b>Уведомления</b><small>Сейчас у вас ${pl(n, 'задача', 'задачи', 'задач')}, ${pl(act().length, 'активная', 'активные', 'активных')}.</small>`;
   document.body.classList.toggle('compact', S.set.compact);
 }
 function trash() {
@@ -59,10 +57,102 @@ function toast(m, lbl, fn) {
 const find = id => S.tasks.find(t => t.id == id);
 async function patch(id, p, msg, lbl, undo) { await db.patch(id, p); Object.assign(find(id), p); render(); if ($('#mTrash').open) trash(); if (msg) toast(msg, lbl, undo); }
 
+
+function applyTheme() {
+  document.documentElement.dataset.theme = S.set.theme || 'dark';
+  if (S.set.theme === 'custom') {
+    document.documentElement.style.setProperty('--acc', S.set.accent || '#2563eb');
+    document.documentElement.style.setProperty('--bg', S.set.bgcolor || '#1e2128');
+  } else {
+    document.documentElement.style.removeProperty('--acc');
+    document.documentElement.style.removeProperty('--bg');
+  }
+}
+async function loadNotices() {
+  if (!S.set.notify) { $('#badge').hidden = true; return; }
+  try { S.notices = await notices.list(); } catch { return; }
+  const seen = ck('jodo_seen') || '';
+  const unread = S.notices.filter(x => x.created_at > seen).length;
+  $('#badge').textContent = unread; $('#badge').hidden = !unread;
+  $('#pb').innerHTML = S.notices.length
+    ? S.notices.slice(0, 5).map(x => `<div class="ntf"><small>${when(x.created_at)}</small><p>${esc(x.body)}</p></div>`).join('')
+    : '<small>Новых уведомлений нет.</small>';
+}
+const TABS_BASE = [['data', 'Мои данные'], ['support', 'Поддержка'], ['contacts', 'Контакты']];
+const TABS_ADMIN = [['notify', 'Уведомления'], ['inbox', 'Чат поддержки']];
+const profTabs = () => S.user.isAdmin ? [...TABS_BASE, ...TABS_ADMIN] : TABS_BASE;
+let chatPoll = null;
+function openProfile() {
+  S.profTab = 'data'; S.inboxUser = null;
+  $('#profTitle').textContent = S.user.isAdmin ? 'Панель администратора' : 'Профиль';
+  $('#profTabs').innerHTML = profTabs().map(([k, l]) => `<button class="tb" data-tab="${k}">${l}</button>`).join('');
+  renderProfTab(); $('#mProfile').showModal();
+}
+async function renderProfTab() {
+  $$('#profTabs .tb').forEach(b => b.classList.toggle('on', b.dataset.tab == S.profTab));
+  clearInterval(chatPoll);
+  const body = $('#profBody');
+  if (S.profTab == 'data') {
+    body.innerHTML = `<div class="kv"><b>Имя</b><span>${esc(S.user.name)}</span></div><div class="kv"><b>Почта</b><span>${esc(S.user.email)}</span></div><div class="kv"><b>Город</b><span>${CITY}</span></div><div class="kv"><b>Роль</b><span>${S.user.isAdmin ? 'Админчик' : 'Пользователь'}</span></div>`;
+  } else if (S.profTab == 'contacts') {
+    body.innerHTML = `<div class="kv"><b>Telegram</b><span>@jodo_support</span></div><div class="kv"><b>Почта поддержки</b><span>support@jodo.app</span></div><p class="hint">Замените на свои контакты в js/app.js, в функции renderProfTab().</p>`;
+  } else if (S.profTab == 'support') {
+    body.innerHTML = `<div class="chat" id="chatBox"></div><form id="chatForm" class="chatform"><input name="m" placeholder="Напишите сообщение..." maxlength="500" autocomplete="off"><button class="btn">➤</button></form>`;
+    loadOwnChat(); chatPoll = setInterval(loadOwnChat, 4000);
+    $('#chatForm').onsubmit = async e => {
+      e.preventDefault(); const f = e.target.elements, t = f.m.value.trim(); if (!t) return;
+      f.m.value = ''; try { await chat.send(S.user, t); loadOwnChat(); } catch { toast('Не удалось отправить сообщение. Проверьте подключение и попробуйте ещё раз.'); }
+    };
+  } else if (S.profTab == 'notify') {
+    body.innerHTML = `<form id="notifyForm"><label>Кому<select name="to"><option value="">Всем пользователям</option></select></label><label>Текст уведомления<input name="b" maxlength="200" placeholder="Например: скоро новая функция"></label><p class="err" id="nerr"></p><button class="btn">Отправить</button></form>`;
+    chat.threads().then(l => { const sel = $('#notifyForm [name=to]'); l.forEach(t => sel.insertAdjacentHTML('beforeend', `<option value="${t.user_id}">${esc(t.user_name || t.user_email || t.user_id)}</option>`)); });
+    $('#notifyForm').onsubmit = async e => {
+      e.preventDefault(); const f = e.target.elements, err = $('#nerr'), b = f.b.value.trim();
+      if (!b) return err.textContent = 'Введите текст уведомления.';
+      try { await notices.send(b, f.to.value || null); f.b.value = ''; err.textContent = ''; toast('Уведомление отправлено.'); }
+      catch { err.textContent = 'Не удалось отправить. Проверьте подключение и попробуйте ещё раз.'; }
+    };
+  } else if (S.profTab == 'inbox') {
+    renderInbox();
+  }
+}
+async function loadOwnChat() {
+  try {
+    const l = await chat.mine(S.user);
+    $('#chatBox').innerHTML = l.length ? l.map(m => `<div class="msg ${m.sender}"><span>${esc(m.body)}</span></div>`).join('') : '<p class="hint">Напишите нам, если нужна помощь.</p>';
+    $('#chatBox').scrollTop = 1e9;
+  } catch {}
+}
+async function renderInbox() {
+  const body = $('#profBody');
+  if (!S.inboxUser) {
+    const l = await chat.threads();
+    body.innerHTML = l.length
+      ? l.map(t => `<button class="thread" data-u="${t.user_id}" data-n="${esc(t.user_name || t.user_email || 'Пользователь')}"><b>${esc(t.user_name || t.user_email || 'Пользователь')}</b><small>${esc(t.body).slice(0, 50)}</small></button>`).join('')
+      : '<p class="hint">Пока нет обращений в поддержку.</p>';
+  } else {
+    body.innerHTML = `<button type="button" class="link" id="backInbox">← Все обращения</button><div class="chat" id="chatBox"></div><form id="chatForm" class="chatform"><input name="m" placeholder="Ответ пользователю..." autocomplete="off"><button class="btn">➤</button></form>`;
+    const draw = async () => { const l = await chat.thread(S.inboxUser.id); $('#chatBox').innerHTML = l.map(m => `<div class="msg ${m.sender}"><span>${esc(m.body)}</span></div>`).join(''); $('#chatBox').scrollTop = 1e9; };
+    await draw();
+    $('#backInbox').onclick = () => { S.inboxUser = null; clearInterval(chatPoll); renderInbox(); };
+    $('#chatForm').onsubmit = async e => {
+      e.preventDefault(); const f = e.target.elements, t = f.m.value.trim(); if (!t) return;
+      f.m.value = ''; try { await chat.reply(S.inboxUser.id, t); await draw(); } catch { toast('Не удалось отправить ответ.'); }
+    };
+    chatPoll = setInterval(draw, 4000);
+  }
+}
+
 document.addEventListener('click', async e => {
   if (!e.target.closest('.pop,[data-act=bell],[data-act=ava]')) $$('.pop').forEach(p => p.hidden = true);
   if (e.target.matches('dialog')) e.target.close();
   if (e.target.closest('[data-close]')) return e.target.closest('dialog').close();
+  if (e.target.closest('.tb')) { S.profTab = e.target.closest('.tb').dataset.tab; S.inboxUser = null; return renderProfTab(); }
+  if (e.target.closest('.thread')) { const el = e.target.closest('.thread'); S.inboxUser = { id: el.dataset.u, name: el.dataset.n }; return renderInbox(); }
+  if (e.target.closest('#themeSeg button')) {
+    const bt = e.target.closest('button'); S.set.theme = bt.dataset.theme; ck('jodo_set', JSON.stringify(S.set));
+    $$('#themeSeg button').forEach(x => x.classList.toggle('on', x === bt)); $('#themeCustom').hidden = bt.dataset.theme !== 'custom'; applyTheme(); return;
+  }
   const b = e.target.closest('[data-act],[data-v]'); if (!b) return;
   if (b.dataset.v) { S.view = b.dataset.v; pickQ(); return render(); }
   const a = b.dataset.act, id = b.dataset.id;
@@ -74,8 +164,12 @@ document.addEventListener('click', async e => {
     else if (a == 'add') openAdd();
     else if (a == 'prev' || a == 'next') { S.wk += a == 'next' ? 1 : -1; render(); }
     else if (a == 'trash') { $$('.pop').forEach(p => p.hidden = true); trash(); $('#mTrash').showModal(); }
-    else if (a == 'settings' || a == 'profile') { $$('.pop').forEach(p => p.hidden = true); $('#mSet').showModal(); }
-    else if (a == 'bell') { $('#pa').hidden = true; $('#pb').hidden = !$('#pb').hidden; }
+    else if (a == 'settings') { $$('.pop').forEach(p => p.hidden = true); $('#mSet').showModal(); }
+    else if (a == 'profile') { $$('.pop').forEach(p => p.hidden = true); openProfile(); }
+    else if (a == 'bell') {
+      $('#pa').hidden = true; $('#pb').hidden = !$('#pb').hidden;
+      if (!$('#pb').hidden) { ck('jodo_seen', new Date().toISOString()); $('#badge').hidden = true; }
+    }
     else if (a == 'ava') { $('#pb').hidden = true; $('#pa').hidden = !$('#pa').hidden; }
     else if (a == 'logout') { await auth.signOut(); S.tasks = []; boot(); }
   } catch { toast('Не удалось выполнить действие. Проверьте данные и попробуйте ещё раз.'); }
@@ -95,7 +189,9 @@ $('#fTask').onsubmit = async e => {
   try { S.tasks.push(await db.add({ title, due: due.toISOString(), project: f.p.value.trim() })); $('#mTask').close(); render(); }
   catch { err.textContent = 'Не удалось сохранить задачу. Проверьте подключение и попробуйте ещё раз.'; }
 };
-$('#mSet').addEventListener('change', e => { S.set[e.target.name] = e.target.checked; ck('jodo_set', JSON.stringify(S.set)); render(); });
+$('#mSet').addEventListener('change', e => { if (e.target.type !== 'checkbox') return; S.set[e.target.name] = e.target.checked; ck('jodo_set', JSON.stringify(S.set)); render(); });
+$('#mSet').addEventListener('input', e => { if (e.target.type !== 'color') return; S.set[e.target.name] = e.target.value; ck('jodo_set', JSON.stringify(S.set)); applyTheme(); });
+$('#mProfile').addEventListener('close', () => clearInterval(chatPoll));
 
 let reg = false;
 $('#sw').onclick = () => {
@@ -121,11 +217,22 @@ async function boot() {
   S.user = await auth.user(); $('#demo').hidden = cloud; $('#auth').hidden = !!S.user; $('#app').hidden = !S.user; if (!S.user) return; pickQ();
   try { S.tasks = await db.list(); } catch { toast('Не удалось загрузить задачи. Проверьте подключение и попробуйте ещё раз.'); }
   $('#ava').textContent = S.user.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  $('#pn').textContent = S.user.name; $('#pc').textContent = 'Пользователь · ' + CITY;
-  $$('#mSet input').forEach(i => i.checked = S.set[i.name]); render();
+  $('#pn').textContent = S.user.name; $('#pc').textContent = (S.user.isAdmin ? 'Админчик' : 'Пользователь') + ' · ' + CITY;
+  $('#profBtn').textContent = S.user.isAdmin ? 'Властвовать' : 'Открыть профиль';
+  $$('#mSet input[type=checkbox]').forEach(i => i.checked = S.set[i.name]);
+  $$('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.theme == (S.set.theme || 'dark')));
+  $('#themeCustom').hidden = (S.set.theme || 'dark') !== 'custom';
+  $('#mSet [name=accent]').value = S.set.accent || '#2563eb'; $('#mSet [name=bgcolor]').value = S.set.bgcolor || '#1e2128';
+  applyTheme(); render(); loadNotices();
 }
 const told = new Set();
-setInterval(() => { if (!S.set.notify || !S.user) return; act().forEach(t => { const m = (new Date(t.due) - Date.now()) / 6e4; if (m > 0 && m <= 15 && !told.has(t.id)) { told.add(t.id); toast('Через 15 минут: ' + t.title); } }); }, 30000);
+setInterval(() => {
+  if (!S.user) return;
+  loadNotices();
+  if (!S.set.notify) return;
+  act().forEach(t => { const m = (new Date(t.due) - Date.now()) / 6e4; if (m > 0 && m <= 15 && !told.has(t.id)) { told.add(t.id); toast('Через 15 минут: ' + t.title); } });
+}, 30000);
+applyTheme();
 boot();
 if (!ck('jodo_ok')) $('#ck').hidden = false;
 $('#ckb').onclick = () => { ck('jodo_ok', '1'); $('#ck').hidden = true; };
