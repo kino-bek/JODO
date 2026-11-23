@@ -1,5 +1,5 @@
 *{box-sizing:border-box;margin:0}
-:root{--bg:#1e2128;--side:#181b20;--line:#2a2e37;--acc:#2563eb;--nav:#13244d;--tx:#e8ebf1;--mu:#7b8393;--dk:#12151a}
+:root{--bg:#1e2128;--side:#181b20;--line:#2a2e37;--acc:#2563eb;--nav:#13244d;--tx:#e8ebf1;--mu:#7b8393;--dk:#12151a;--panel:#1a1d24}
 body{font:14px Nunito,sans-serif;background:var(--bg);color:var(--tx)}
 h1,h2,h3,.logo{font-family:Comfortaa,sans-serif;font-weight:400}
 [hidden]{display:none!important}
@@ -54,7 +54,7 @@ blockquote{margin-top:48px;font-style:italic;color:#9aa3b5;font-size:13px}
 .ev{background:color-mix(in srgb, var(--acc) 15%, var(--bg));border:1px solid var(--acc);border-radius:5px;padding:3px 6px;font-size:11px;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .ev.done{background:var(--line);border-color:var(--line);color:var(--mu);text-decoration:line-through}
 dialog{margin:auto;background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:18px;padding:28px;width:min(520px,92vw);position:fixed}
-dialog::backdrop{background:#000a}
+dialog::backdrop{background:#000c}
 dialog h2{font-size:30px;margin:6px 0 18px}.hl{color:#6c8cff;letter-spacing:.1em}
 dialog label{display:block;margin-bottom:12px;color:var(--mu);font-size:13px}dialog label input,dialog select{margin-top:6px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -133,3 +133,6 @@ input,select{border-radius:14px}
 .segm button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 #themeCustom label{display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:0}
 #themeCustom input[type=color]{width:46px;height:32px;padding:2px;border-radius:8px;flex:none}
+
+#themeReset{margin-top:14px;width:100%;font-size:13px}
+#mSet{max-height:92vh;overflow-y:auto}

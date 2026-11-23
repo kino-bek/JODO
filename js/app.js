@@ -9,7 +9,7 @@ const ck = (k, v) => {
   if (v === undefined) { const m = document.cookie.match('(?:^|; )' + k + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : ''; }
   document.cookie = `${k}=${encodeURIComponent(v)}; max-age=31536000; path=${location.pathname.replace(/[^/]*$/, '')}; SameSite=Lax${location.protocol == 'https:' ? '; Secure' : ''}`;
 };
-const S = { user: null, tasks: [], notices: [], view: 'today', wk: 0, profTab: 'data', inboxUser: null, set: { notify: true, compact: false, monday: true, theme: 'dark', accent: '#2563eb', bgcolor: '#1e2128', ...JSON.parse(ck('jodo_set') || '{}') } };
+const S = { user: null, tasks: [], notices: [], view: 'today', wk: 0, profTab: 'data', inboxUser: null, set: { notify: true, compact: false, monday: true, theme: 'dark', accent: '#2563eb', bgcolor: '#1e2128', sidecolor: '#181b20', panelcolor: '#1a1d24', textcolor: '#e8ebf1', ...JSON.parse(ck('jodo_set') || '{}') } };
 const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const pl = (n, a, b, c) => { const m = n % 10, h = n % 100; return n + ' ' + (m == 1 && h != 11 ? a : m > 1 && m < 5 && (h < 10 || h > 20) ? b : c); };
 const live = () => S.tasks.filter(t => !t.deleted_at), act = l => (l || live()).filter(t => !t.done);
@@ -58,15 +58,18 @@ const find = id => S.tasks.find(t => t.id == id);
 async function patch(id, p, msg, lbl, undo) { await db.patch(id, p); Object.assign(find(id), p); render(); if ($('#mTrash').open) trash(); if (msg) toast(msg, lbl, undo); }
 
 
+const CUSTOM = { accent: ['--acc', '#2563eb'], bgcolor: ['--bg', '#1e2128'], sidecolor: ['--side', '#181b20'], panelcolor: ['--panel', '#1a1d24'], textcolor: ['--tx', '#e8ebf1'] };
 function applyTheme() {
-  document.documentElement.dataset.theme = S.set.theme || 'dark';
+  const r = document.documentElement, st = r.style;
+  r.dataset.theme = S.set.theme || 'dark';
+  const all = [...Object.values(CUSTOM).map(v => v[0]), '--line', '--nav', '--mu', '--dk'];
   if (S.set.theme === 'custom') {
-    document.documentElement.style.setProperty('--acc', S.set.accent || '#2563eb');
-    document.documentElement.style.setProperty('--bg', S.set.bgcolor || '#1e2128');
-  } else {
-    document.documentElement.style.removeProperty('--acc');
-    document.documentElement.style.removeProperty('--bg');
-  }
+    for (const [k, [v, d]] of Object.entries(CUSTOM)) st.setProperty(v, S.set[k] || d);
+    st.setProperty('--line', 'color-mix(in srgb, var(--tx) 14%, var(--panel))');
+    st.setProperty('--mu', 'color-mix(in srgb, var(--tx) 55%, var(--bg))');
+    st.setProperty('--nav', 'color-mix(in srgb, var(--acc) 22%, var(--side))');
+    st.setProperty('--dk', 'color-mix(in srgb, var(--bg) 70%, #000)');
+  } else all.forEach(v => st.removeProperty(v));
 }
 async function loadNotices() {
   if (!S.set.notify) { $('#badge').hidden = true; return; }
@@ -149,6 +152,10 @@ document.addEventListener('click', async e => {
   if (e.target.closest('[data-close]')) return e.target.closest('dialog').close();
   if (e.target.closest('.tb')) { S.profTab = e.target.closest('.tb').dataset.tab; S.inboxUser = null; return renderProfTab(); }
   if (e.target.closest('.thread')) { const el = e.target.closest('.thread'); S.inboxUser = { id: el.dataset.u, name: el.dataset.n }; return renderInbox(); }
+  if (e.target.closest('#themeReset')) {
+    for (const [k, [, d]] of Object.entries(CUSTOM)) { S.set[k] = d; $('#mSet [name=' + k + ']').value = d; }
+    ck('jodo_set', JSON.stringify(S.set)); applyTheme(); return;
+  }
   if (e.target.closest('#themeSeg button')) {
     const bt = e.target.closest('button'); S.set.theme = bt.dataset.theme; ck('jodo_set', JSON.stringify(S.set));
     $$('#themeSeg button').forEach(x => x.classList.toggle('on', x === bt)); $('#themeCustom').hidden = bt.dataset.theme !== 'custom'; applyTheme(); return;
@@ -222,7 +229,7 @@ async function boot() {
   $$('#mSet input[type=checkbox]').forEach(i => i.checked = S.set[i.name]);
   $$('#themeSeg button').forEach(b => b.classList.toggle('on', b.dataset.theme == (S.set.theme || 'dark')));
   $('#themeCustom').hidden = (S.set.theme || 'dark') !== 'custom';
-  $('#mSet [name=accent]').value = S.set.accent || '#2563eb'; $('#mSet [name=bgcolor]').value = S.set.bgcolor || '#1e2128';
+  for (const [k, [, d]] of Object.entries(CUSTOM)) $('#mSet [name=' + k + ']').value = S.set[k] || d;
   applyTheme(); render(); loadNotices();
 }
 const told = new Set();
