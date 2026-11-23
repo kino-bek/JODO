@@ -98,7 +98,7 @@ async function renderProfTab() {
   if (S.profTab == 'data') {
     body.innerHTML = `<div class="kv"><b>Имя</b><span>${esc(S.user.name)}</span></div><div class="kv"><b>Почта</b><span>${esc(S.user.email)}</span></div><div class="kv"><b>Город</b><span>${CITY}</span></div><div class="kv"><b>Роль</b><span>${S.user.isAdmin ? 'Админчик' : 'Пользователь'}</span></div>`;
   } else if (S.profTab == 'contacts') {
-    body.innerHTML = `<div class="kv"><b>Telegram</b><span>@jodo_support</span></div><div class="kv"><b>Почта поддержки</b><span>support@jodo.app</span></div><p class="hint">Ответы приходят в течении 5-10 минут.</p>`;
+    body.innerHTML = `<div class="kv"><b>Telegram</b><span>@jodo_support</span></div><div class="kv"><b>Почта поддержки</b><span>jodosupport@gmail.com</span></div><p class="hint">Ответы приходят в течении 5-10 минут.</p>`;
   } else if (S.profTab == 'support') {
     body.innerHTML = `<div class="chat" id="chatBox"></div><form id="chatForm" class="chatform"><input name="m" placeholder="Напишите сообщение..." maxlength="500" autocomplete="off"><button class="btn">➤</button></form>`;
     loadOwnChat(); chatPoll = setInterval(loadOwnChat, 4000);
